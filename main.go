@@ -1,32 +1,39 @@
 package main
 
 import (
-	"net/http"
+	"log"
+	"os"
 
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+
+	"github.com/chilipizdrick/muzek-server/api"
+	"github.com/chilipizdrick/muzek-server/database"
 )
 
-type Track struct {
-	ID     uint   `json:"id"`
-	Title  string `json:"title"`
-	Artist string `json:"artist"`
-	Album  string `json:"album"`
-	// Cover  image.Image `json:"cover"`
-}
-
-var Tracks = []Track{
-	{ID: 1, Title: "Blue Train", Artist: "John Coltrane", Album: "a"},
-	{ID: 2, Title: "Blue Train", Artist: "John Coltrane", Album: "a"},
-	{ID: 3, Title: "Blue Train", Artist: "John Coltrane", Album: "a"},
-	{ID: 4, Title: "Blue Train", Artist: "John Coltrane", Album: "a"},
-}
-
-func getTracks(c *gin.Context) {
-	c.IndentedJSON(http.StatusOK, Tracks)
-}
-
 func main() {
-	router := gin.Default()
-	router.GET("/tracks", getTracks)
-	router.Run("localhost:8080")
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Println("[INFO] No .env file found.")
+	}
+	if os.Getenv("POSTGRES_DSN") == "" {
+		log.Fatalln("[FATAL] POSTGRESQL_DSN environment variable not specified.")
+	}
+
+	dsn := os.Getenv("POSTGRES_DSN")
+	log.Printf("%s", dsn)
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		log.Fatalln("[FATAL] Failed to connect to database.")
+	}
+
+	database.AutoMigrateSchemas(db)
+
+	r := gin.New()
+
+	api.AssignRouteHandlers(r, db)
+
+	r.Run()
 }
