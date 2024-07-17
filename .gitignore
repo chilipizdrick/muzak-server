@@ -1,4 +1,5 @@
 temp/*
+data/*
 
 .env
 *.db

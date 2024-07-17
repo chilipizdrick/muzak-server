@@ -20,7 +20,8 @@
         shellHook = ''
           export PGDATA=temp/database
           export PGHOST=localhost
-          export POSTGRES_DSN="host=$PGHOST user=postgres password= dbname=db1 port=5432 sslmode=disable TimeZone=Europe/Moscow"
+          export POSTGRES_DSN="host=$PGHOST user=postgres password= database=db1 dbname=db1 port=5432 sslmode=disable"
+          export ASSETS_SERVER_URI="$(realpath ./temp/assets)" # Supposed file server
           pg_ctl -l database.log -o "--unix_socket_directories='$PWD/temp'" start
         '';
       };

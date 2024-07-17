@@ -21,17 +21,19 @@ func main() {
 	if os.Getenv("POSTGRES_DSN") == "" {
 		log.Fatalln("[FATAL] POSTGRESQL_DSN environment variable not specified.")
 	}
+	if os.Getenv("ASSETS_SERVER_URI") == "" {
+		log.Fatalln("[FATAL] ASSETS_SERVER_URI environment variable not specified.")
+	}
 
 	dsn := os.Getenv("POSTGRES_DSN")
-	log.Printf("%s", dsn)
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		log.Fatalln("[FATAL] Failed to connect to database.")
 	}
 
-	database.AutoMigrateSchemas(db)
-
 	r := gin.New()
+
+	database.AutoMigrateSchemas(db)
 
 	api.AssignRouteHandlers(r, db)
 

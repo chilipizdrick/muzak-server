@@ -5,22 +5,46 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/chilipizdrick/muzek-server/database"
+	"github.com/chilipizdrick/muzek-server/utils"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
 
 const TRACKS_API_ROUTE = "/tracks"
 
+type Track struct {
+	ID        uint    `json:"id"`
+	Title     string  `json:"title"`
+	ArtistIDs *[]uint `json:"artistIds"`
+	AlbumID   *uint   `json:"albumId"`
+	Genre     *string `json:"genre"`
+	Duration  uint    `json:"duration"`
+	Href      string  `json:"href"`
+}
+
+func DBTrackToAPITrack(track database.Track) Track {
+	return Track{
+		ID:        track.ID,
+		Title:     track.Title,
+		ArtistIDs: utils.PQInt64ArrayPtrToUIntSlice(track.ArtistIDs),
+		AlbumID:   track.AlbumID,
+		Genre:     track.Genre,
+		Duration:  track.Duration,
+		Href:      fmt.Sprintf("%s/tracks/%d/audio.ogg", os.Getenv("ASSETS_SERVER_URI"), track.ID),
+	}
+}
+
 func assignTracksRouteHandlers(parentGroup *gin.RouterGroup, db *gorm.DB) {
 	group := parentGroup.Group(TRACKS_API_ROUTE)
 
-	group.GET("/:id", getTrackByIDHandlerWrapper(db))
+	group.GET("/:id", getTrackByIDWrapper(db))
 }
 
-func getTrackByIDHandlerWrapper(db *gorm.DB) gin.HandlerFunc {
+func getTrackByIDWrapper(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		idString := c.Param("id")
 		id64, err := strconv.ParseUint(idString, 10, 64)
@@ -36,7 +60,6 @@ func getTrackByIDHandlerWrapper(db *gorm.DB) gin.HandlerFunc {
 		}
 		id := uint(id64)
 		track, err := database.GetTrackByIDFromDB(db, id)
-		log.Printf("%s", err)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.IndentedJSON(http.StatusNotFound, ErrorResponse{
@@ -55,6 +78,6 @@ func getTrackByIDHandlerWrapper(db *gorm.DB) gin.HandlerFunc {
 			})
 			return
 		}
-		c.IndentedJSON(http.StatusOK, *track)
+		c.IndentedJSON(http.StatusOK, DBTrackToAPITrack(*track))
 	}
 }
