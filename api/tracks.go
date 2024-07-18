@@ -9,7 +9,6 @@ import (
 	"strconv"
 
 	"github.com/chilipizdrick/muzek-server/database"
-	"github.com/chilipizdrick/muzek-server/utils"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -23,24 +22,22 @@ func assignTracksRouteHandlers(parentGroup *gin.RouterGroup, db *gorm.DB) {
 }
 
 type Track struct {
-	ID        uint    `json:"id"`
-	Title     string  `json:"title"`
-	ArtistIDs *[]uint `json:"artistIds"`
-	AlbumID   *uint   `json:"albumId"`
-	Genre     *string `json:"genre"`
-	Duration  uint    `json:"duration"`
-	Href      string  `json:"href"`
+	ID       uint              `json:"id"`
+	Title    string            `json:"title"`
+	Artists  []database.Artist `json:"artists"`
+	Album    database.Album    `json:"album"`
+	Duration uint              `json:"duration"`
+	Href     string            `json:"href"`
 }
 
-func DBTrackToAPITrack(track database.TrackModel) Track {
+func DBTrackExpandedToAPITrack(track database.TrackExpanded) Track {
 	return Track{
-		ID:        track.ID,
-		Title:     track.Title,
-		ArtistIDs: utils.PQInt64ArrayPtrToUIntSlice(track.ArtistIDs),
-		AlbumID:   track.AlbumID,
-		Genre:     track.Genre,
-		Duration:  track.Duration,
-		Href:      fmt.Sprintf("%s/tracks/%d/audio.ogg", os.Getenv("ASSETS_SERVER_URI"), track.ID),
+		ID:       track.ID,
+		Title:    track.Title,
+		Artists:  track.Artists,
+		Album:    track.Album,
+		Duration: track.Duration,
+		Href:     fmt.Sprintf("%s/tracks/%d/audio.ogg", os.Getenv("ASSETS_SERVER_URI"), track.ID),
 	}
 }
 
@@ -59,7 +56,7 @@ func getTrackByIDWrapper(db *gorm.DB) gin.HandlerFunc {
 			return
 		}
 		id := uint(id64)
-		track, err := database.GetTrackByIDFromDB(db, id)
+		track, err := database.GetTrackExpandedByID(db, id)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				c.IndentedJSON(http.StatusNotFound, ErrorResponse{
@@ -78,6 +75,6 @@ func getTrackByIDWrapper(db *gorm.DB) gin.HandlerFunc {
 			})
 			return
 		}
-		c.IndentedJSON(http.StatusOK, DBTrackToAPITrack(*track))
+		c.IndentedJSON(http.StatusOK, DBTrackExpandedToAPITrack(*track))
 	}
 }
