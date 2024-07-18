@@ -16,6 +16,12 @@ import (
 
 const TRACKS_API_ROUTE = "/tracks"
 
+func assignTracksRouteHandlers(parentGroup *gin.RouterGroup, db *gorm.DB) {
+	group := parentGroup.Group(TRACKS_API_ROUTE)
+
+	group.GET("/:id", getTrackByIDWrapper(db))
+}
+
 type Track struct {
 	ID        uint    `json:"id"`
 	Title     string  `json:"title"`
@@ -26,7 +32,7 @@ type Track struct {
 	Href      string  `json:"href"`
 }
 
-func DBTrackToAPITrack(track database.Track) Track {
+func DBTrackToAPITrack(track database.TrackModel) Track {
 	return Track{
 		ID:        track.ID,
 		Title:     track.Title,
@@ -36,12 +42,6 @@ func DBTrackToAPITrack(track database.Track) Track {
 		Duration:  track.Duration,
 		Href:      fmt.Sprintf("%s/tracks/%d/audio.ogg", os.Getenv("ASSETS_SERVER_URI"), track.ID),
 	}
-}
-
-func assignTracksRouteHandlers(parentGroup *gin.RouterGroup, db *gorm.DB) {
-	group := parentGroup.Group(TRACKS_API_ROUTE)
-
-	group.GET("/:id", getTrackByIDWrapper(db))
 }
 
 func getTrackByIDWrapper(db *gorm.DB) gin.HandlerFunc {
