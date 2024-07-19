@@ -12,6 +12,7 @@ type ArtistModel struct {
 	AlbumIDs   pq.Int64Array `gorm:"type:integer[]"`
 	TrackIDs   pq.Int64Array `gorm:"type:integer[]"`
 	IsVerified bool          `gorm:"type:bool"`
+	TSV        string        `gorm:"type:tsvector GENERATED ALWAYS AS (to_tsvector('simple', name)) STORED;index:,type:GIN"`
 }
 
 func (ArtistModel) TableName() string {
@@ -42,6 +43,31 @@ func ArtistModelToArtist(artistModel ArtistModel) Artist {
 		TrackIDs:   utils.PQInt64ArrayPtrToUIntSlice(artistModel.TrackIDs),
 		IsVerified: artistModel.IsVerified,
 	}
+}
+
+func ArtistToArtistExpanded(db *gorm.DB, artist Artist) (*ArtistExpanded, error) {
+	albums, err := GetAlbumsByIDs(db, artist.AlbumIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	tracks, err := GetTracksByIDs(db, artist.TrackIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	artistExpanded := ArtistExpanded{
+		ID:         artist.ID,
+		Name:       artist.Name,
+		Albums:     albums,
+		Tracks:     tracks,
+		IsVerified: artist.IsVerified,
+	}
+	return &artistExpanded, nil
+}
+
+func ArtistModelToArtistExpanded(db *gorm.DB, artistModel ArtistModel) (*ArtistExpanded, error) {
+	return ArtistToArtistExpanded(db, ArtistModelToArtist(artistModel))
 }
 
 func GetArtistModelByID(db *gorm.DB, id uint) (*ArtistModel, error) {

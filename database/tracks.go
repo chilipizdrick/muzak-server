@@ -12,6 +12,7 @@ type TrackModel struct {
 	ArtistIDs pq.Int64Array `gorm:"type:integer[]"`
 	AlbumID   uint          `gorm:"type:uint"`
 	Duration  uint          `gorm:"type:uint"`
+	TSV       string        `gorm:"type:tsvector GENERATED ALWAYS AS (to_tsvector('simple', title)) STORED;index:,type:GIN"`
 }
 
 func (TrackModel) TableName() string {
@@ -44,6 +45,31 @@ func TrackModelToTrack(trackModel TrackModel) Track {
 	}
 }
 
+func TrackToTrackExpanded(db *gorm.DB, track Track) (*TrackExpanded, error) {
+	artists, err := GetArtistsByIDs(db, track.ArtistIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	album, err := GetAlbumByID(db, track.AlbumID)
+	if err != nil {
+		return nil, err
+	}
+
+	trackExpanded := TrackExpanded{
+		ID:       track.ID,
+		Title:    track.Title,
+		Artists:  artists,
+		Album:    *album,
+		Duration: track.Duration,
+	}
+	return &trackExpanded, nil
+}
+
+func TrackModelToTrackExpanded(db *gorm.DB, trackModel TrackModel) (*TrackExpanded, error) {
+	return TrackToTrackExpanded(db, TrackModelToTrack(trackModel))
+}
+
 func GetTrackModelByID(db *gorm.DB, id uint) (*TrackModel, error) {
 	var trackModel TrackModel
 	if err := db.First(&trackModel, id).Error; err != nil {
@@ -67,25 +93,12 @@ func GetTrackExpandedByID(db *gorm.DB, id uint) (*TrackExpanded, error) {
 		return nil, err
 	}
 
-	artists, err := GetArtistsByIDs(db, track.ArtistIDs)
+	trackExpanded, err := TrackToTrackExpanded(db, *track)
 	if err != nil {
 		return nil, err
 	}
 
-	album, err := GetAlbumByID(db, track.AlbumID)
-	if err != nil {
-		return nil, err
-	}
-
-	trackExpanded := TrackExpanded{
-		ID:       track.ID,
-		Title:    track.Title,
-		Artists:  artists,
-		Album:    *album,
-		Duration: track.Duration,
-	}
-
-	return &trackExpanded, nil
+	return trackExpanded, nil
 }
 
 func GetTracksByIDs(db *gorm.DB, ids []uint) ([]Track, error) {

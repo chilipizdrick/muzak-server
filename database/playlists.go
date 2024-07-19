@@ -12,6 +12,7 @@ type PlaylistModel struct {
 	OwnerID  uint          `gorm:"type:uint"`
 	IsPublic bool          `gorm:"type:bool"`
 	TrackIDs pq.Int64Array `gorm:"type:integer[]"`
+	TSV      string        `gorm:"type:tsvector GENERATED ALWAYS AS (to_tsvector('simple', title)) STORED;index:,type:GIN"`
 }
 
 func (PlaylistModel) TableName() string {
@@ -44,6 +45,31 @@ func PlaylistModelToPlaylist(playlistModel PlaylistModel) Playlist {
 	}
 }
 
+func PlaylistToPlaylistExpanded(db *gorm.DB, playlist Playlist) (*PlaylistExpanded, error) {
+	owner, err := GetUserByID(db, playlist.OwnerID)
+	if err != nil {
+		return nil, err
+	}
+
+	tracks, err := GetTracksByIDs(db, playlist.TrackIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	playlistExpanded := PlaylistExpanded{
+		ID:       playlist.ID,
+		Title:    playlist.Title,
+		Owner:    *owner,
+		IsPublic: playlist.IsPublic,
+		Tracks:   tracks,
+	}
+	return &playlistExpanded, nil
+}
+
+func PlaylistModelToPlaylistExpanded(db *gorm.DB, playlistModel PlaylistModel) (*PlaylistExpanded, error) {
+	return PlaylistToPlaylistExpanded(db, PlaylistModelToPlaylist(playlistModel))
+}
+
 func GetPlaylistModelByID(db *gorm.DB, id uint) (*PlaylistModel, error) {
 	var playlistModel PlaylistModel
 	if err := db.First(&playlistModel, id).Error; err != nil {
@@ -67,24 +93,11 @@ func GetPlaylistExpandedByID(db *gorm.DB, id uint) (*PlaylistExpanded, error) {
 		return nil, err
 	}
 
-	owner, err := GetUserByID(db, playlist.OwnerID)
+	playlistExpanded, err := PlaylistToPlaylistExpanded(db, *playlist)
 	if err != nil {
 		return nil, err
 	}
-
-	tracks, err := GetTracksByIDs(db, playlist.TrackIDs)
-	if err != nil {
-		return nil, err
-	}
-
-	playlistExpanded := PlaylistExpanded{
-		ID:       playlist.ID,
-		Title:    playlist.Title,
-		Owner:    *owner,
-		IsPublic: playlist.IsPublic,
-		Tracks:   tracks,
-	}
-	return &playlistExpanded, nil
+	return playlistExpanded, nil
 }
 
 func GetPlaylistsByIDs(db *gorm.DB, ids []uint) ([]Playlist, error) {

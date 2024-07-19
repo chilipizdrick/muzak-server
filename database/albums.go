@@ -11,6 +11,7 @@ type AlbumModel struct {
 	Title     string        `gorm:"type:string"`
 	ArtistIDs pq.Int64Array `gorm:"type:integer[]"`
 	TrackIDs  pq.Int64Array `gorm:"type:integer[]"`
+	TSV       string        `gorm:"type:tsvector GENERATED ALWAYS AS (to_tsvector('simple', title)) STORED;index:,type:GIN"`
 }
 
 func (AlbumModel) TableName() string {
@@ -40,29 +41,7 @@ func AlbumModelToAlbum(albumModel AlbumModel) Album {
 	}
 }
 
-func GetAlbumModelByID(db *gorm.DB, id uint) (*AlbumModel, error) {
-	var albumModel AlbumModel
-	if err := db.First(&albumModel, id).Error; err != nil {
-		return nil, err
-	}
-	return &albumModel, nil
-}
-
-func GetAlbumByID(db *gorm.DB, id uint) (*Album, error) {
-	albumModel, err := GetAlbumModelByID(db, id)
-	if err != nil {
-		return nil, err
-	}
-	album := AlbumModelToAlbum(*albumModel)
-	return &album, nil
-}
-
-func GetAlbumExpandedByID(db *gorm.DB, id uint) (*AlbumExpanded, error) {
-	album, err := GetAlbumByID(db, id)
-	if err != nil {
-		return nil, err
-	}
-
+func AlbumToAlbumExpanded(db *gorm.DB, album Album) (*AlbumExpanded, error) {
 	artists, err := GetArtistsByIDs(db, album.ArtistIDs)
 	if err != nil {
 		return nil, err
@@ -79,8 +58,42 @@ func GetAlbumExpandedByID(db *gorm.DB, id uint) (*AlbumExpanded, error) {
 		Artists: artists,
 		Tracks:  tracks,
 	}
-
 	return &albumExpanded, nil
+}
+
+func AlbumModelToAlbumExpanded(db *gorm.DB, albumModel AlbumModel) (*AlbumExpanded, error) {
+	return AlbumToAlbumExpanded(db, AlbumModelToAlbum(albumModel))
+}
+
+func GetAlbumModelByID(db *gorm.DB, id uint) (*AlbumModel, error) {
+	var albumModel AlbumModel
+	if err := db.First(&albumModel, id).Error; err != nil {
+		return nil, err
+	}
+	return &albumModel, nil
+}
+
+func GetAlbumByID(db *gorm.DB, id uint) (*Album, error) {
+	albumModel, err := GetAlbumModelByID(db, id)
+	if err != nil {
+		return nil, err
+	}
+
+	album := AlbumModelToAlbum(*albumModel)
+	return &album, nil
+}
+
+func GetAlbumExpandedByID(db *gorm.DB, id uint) (*AlbumExpanded, error) {
+	album, err := GetAlbumByID(db, id)
+	if err != nil {
+		return nil, err
+	}
+
+	albumExpanded, err := AlbumToAlbumExpanded(db, *album)
+	if err != nil {
+		return nil, err
+	}
+	return albumExpanded, nil
 }
 
 func GetAlbumsByIDs(db *gorm.DB, ids []uint) ([]Album, error) {
@@ -96,6 +109,5 @@ func GetAlbumsByIDs(db *gorm.DB, ids []uint) ([]Album, error) {
 			albums[i] = AlbumModelToAlbum(e)
 		}
 	}
-
 	return albums, nil
 }

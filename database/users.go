@@ -8,11 +8,12 @@ import (
 
 type UserModel struct {
 	gorm.Model
-	Username          string            `gorm:"type:string"`
-	PasswordHash      string            `gorm:"type:string"`
-	PlaylistIDs       pq.Int64Array     `gorm:"type:integer[]"`
-	PlayerState       *PlayerStateModel `gorm:"embedded;embeddedPrefix:player_"`
-	PublicPlayerState bool              `gorm:"type:bool"`
+	Username            string            `gorm:"type:string"`
+	PasswordHash        string            `gorm:"type:string"`
+	PlaylistIDs         pq.Int64Array     `gorm:"type:integer[]"`
+	PlayerState         *PlayerStateModel `gorm:"embedded;embeddedPrefix:player_"`
+	IsPlayerStatePublic bool              `gorm:"type:bool"`
+	TSV                 string            `gorm:"type:tsvector GENERATED ALWAYS AS (to_tsvector('simple', username)) STORED;index:,type:GIN"`
 }
 
 func (UserModel) TableName() string {
@@ -20,103 +21,109 @@ func (UserModel) TableName() string {
 }
 
 type PlayerStateModel struct {
-	TrackID               uint    `gorm:"type:uint"`
-	Progress              uint    `gorm:"type:uint"` // In seconds
-	Device                string  `gorm:"type:string"`
-	ShuffleEnabled        bool    `gorm:"type:bool"`
-	RepeatPlaylistEnabled bool    `gorm:"type:bool"`
-	RepeatTrackEnabled    bool    `gorm:"type:bool"`
-	Volume                float64 `gorm:"type:float"` // From 0.0 to 1.0
+	TrackID                 uint    `gorm:"type:uint"`
+	IsPlaying               bool    `gorm:"type:bool"`
+	Progress                uint    `gorm:"type:uint"` // In seconds
+	Device                  string  `gorm:"type:string"`
+	IsShuffleEnabled        bool    `gorm:"type:bool"`
+	IsRepeatPlaylistEnabled bool    `gorm:"type:bool"`
+	IsRepeatTrackEnabled    bool    `gorm:"type:bool"`
+	Volume                  float64 `gorm:"type:float"` // From 0.0 to 1.0
 }
 
 type User struct {
-	ID                uint
-	Username          string
-	PasswordHash      string
-	PlaylistIDs       []uint
-	PlayerState       *PlayerState
-	PublicPlayerState bool
-}
-
-type PlayerState struct {
-	TrackID               uint
-	Progress              uint // In seconds
-	Device                string
-	ShuffleEnabled        bool
-	RepeatPlaylistEnabled bool
-	RepeatTrackEnabled    bool
-	Volume                float64 // From 0.0 to 1.0
+	ID                  uint
+	Username            string
+	PasswordHash        string
+	PlaylistIDs         []uint
+	PlayerState         *PlayerState
+	IsPlayerStatePublic bool
 }
 
 type UserExpanded struct {
-	ID                uint
-	Username          string
-	PasswordHash      string
-	Playlists         []Playlist
-	PlayerState       *PlayerStateExpanded
-	PublicPlayerState bool
+	ID                  uint
+	Username            string
+	PasswordHash        string
+	Playlists           []Playlist
+	PlayerState         *PlayerState
+	IsPlayerStatePublic bool
 }
 
-type PlayerStateExpanded struct {
-	Track                 Track
-	Progress              uint // In seconds
-	Device                string
-	ShuffleEnabled        bool
-	RepeatPlaylistEnabled bool
-	RepeatTrackEnabled    bool
-	Volume                float64 // From 0.0 to 1.0
+type PlayerState struct {
+	Track                   Track
+	IsPlaying               bool
+	Progress                uint // In seconds
+	Device                  string
+	IsShuffleEnabled        bool
+	IsRepeatPlaylistEnabled bool
+	IsRepeatTrackEnabled    bool
+	Volume                  float64 // From 0.0 to 1.0
 }
 
-func UserModelToUser(userModel UserModel) User {
-	return User{
-		ID:                userModel.ID,
-		Username:          userModel.Username,
-		PasswordHash:      userModel.PasswordHash,
-		PlaylistIDs:       utils.PQInt64ArrayPtrToUIntSlice(userModel.PlaylistIDs),
-		PlayerState:       PlayerStateModelToPlayerState(userModel.PlayerState),
-		PublicPlayerState: userModel.PublicPlayerState,
-	}
-}
-
-func PlayerStateModelToPlayerState(playerStateModel *PlayerStateModel) *PlayerState {
-	if playerStateModel == nil {
-		return nil
-	}
-
-	playerState := PlayerState{
-		TrackID:               playerStateModel.TrackID,
-		Progress:              playerStateModel.Progress,
-		Device:                playerStateModel.Device,
-		ShuffleEnabled:        playerStateModel.ShuffleEnabled,
-		RepeatPlaylistEnabled: playerStateModel.RepeatPlaylistEnabled,
-		RepeatTrackEnabled:    playerStateModel.RepeatTrackEnabled,
-		Volume:                playerStateModel.Volume,
-	}
-
-	return &playerState
-}
-
-func PlayerStateToPlayerStateExpanded(db *gorm.DB, playerState *PlayerState) (*PlayerStateExpanded, error) {
-	if playerState == nil {
-		return nil, nil
-	}
-
-	track, err := GetTrackByID(db, playerState.TrackID)
+func UserModelToUser(db *gorm.DB, userModel UserModel) (*User, error) {
+	playerState, err := PlayerStateModelToPlayerState(db, userModel.PlayerState)
 	if err != nil {
 		return nil, err
 	}
 
-	playerStateExpanded := PlayerStateExpanded{
-		Track:                 *track,
-		Progress:              playerState.Progress,
-		Device:                playerState.Device,
-		ShuffleEnabled:        playerState.ShuffleEnabled,
-		RepeatPlaylistEnabled: playerState.RepeatPlaylistEnabled,
-		RepeatTrackEnabled:    playerState.RepeatTrackEnabled,
-		Volume:                playerState.Volume,
+	user := User{
+		ID:                  userModel.ID,
+		Username:            userModel.Username,
+		PasswordHash:        userModel.PasswordHash,
+		PlaylistIDs:         utils.PQInt64ArrayPtrToUIntSlice(userModel.PlaylistIDs),
+		PlayerState:         playerState,
+		IsPlayerStatePublic: userModel.IsPlayerStatePublic,
+	}
+	return &user, nil
+}
+
+func UserToUserExpanded(db *gorm.DB, user User) (*UserExpanded, error) {
+	playlists, err := GetPlaylistsByIDs(db, user.PlaylistIDs)
+	if err != nil {
+		return nil, err
 	}
 
-	return &playerStateExpanded, nil
+	userExpanded := UserExpanded{
+		ID:                  user.ID,
+		Username:            user.Username,
+		PasswordHash:        user.PasswordHash,
+		Playlists:           playlists,
+		PlayerState:         user.PlayerState,
+		IsPlayerStatePublic: user.IsPlayerStatePublic,
+	}
+	return &userExpanded, nil
+}
+
+func UserModelToUserExpanded(db *gorm.DB, userModel UserModel) (*UserExpanded, error) {
+	user, err := UserModelToUser(db, userModel)
+	if err != nil {
+		return nil, err
+	}
+	return UserToUserExpanded(db, *user)
+}
+
+func PlayerStateModelToPlayerState(db *gorm.DB, playerStateModel *PlayerStateModel) (*PlayerState, error) {
+	if playerStateModel == nil {
+		return nil, nil
+	}
+
+	track, err := GetTrackByID(db, playerStateModel.TrackID)
+	if err != nil {
+		return nil, err
+	}
+
+	playerState := PlayerState{
+		Track:                   *track,
+		IsPlaying:               playerStateModel.IsPlaying,
+		Progress:                playerStateModel.Progress,
+		Device:                  playerStateModel.Device,
+		IsShuffleEnabled:        playerStateModel.IsShuffleEnabled,
+		IsRepeatPlaylistEnabled: playerStateModel.IsRepeatPlaylistEnabled,
+		IsRepeatTrackEnabled:    playerStateModel.IsRepeatTrackEnabled,
+		Volume:                  playerStateModel.Volume,
+	}
+
+	return &playerState, nil
 }
 
 func GetUserModelByID(db *gorm.DB, id uint) (*UserModel, error) {
@@ -132,8 +139,13 @@ func GetUserByID(db *gorm.DB, id uint) (*User, error) {
 	if err != nil {
 		return nil, err
 	}
-	user := UserModelToUser(*userModel)
-	return &user, nil
+
+	user, err := UserModelToUser(db, *userModel)
+	if err != nil {
+		return nil, err
+	}
+
+	return user, nil
 }
 
 func GetUserExpandedByID(db *gorm.DB, id uint) (*UserExpanded, error) {
@@ -142,19 +154,11 @@ func GetUserExpandedByID(db *gorm.DB, id uint) (*UserExpanded, error) {
 		return nil, err
 	}
 
-	playerStateExpanded, err := PlayerStateToPlayerStateExpanded(db, user.PlayerState)
+	userExpanded, err := UserToUserExpanded(db, *user)
 	if err != nil {
 		return nil, err
 	}
-
-	userExpanded := UserExpanded{
-		ID:                user.ID,
-		Username:          user.Username,
-		PasswordHash:      user.PasswordHash,
-		PlayerState:       playerStateExpanded,
-		PublicPlayerState: user.PublicPlayerState,
-	}
-	return &userExpanded, nil
+	return userExpanded, nil
 }
 
 func GetUsersByIDs(db *gorm.DB, ids []uint) ([]User, error) {
@@ -167,7 +171,11 @@ func GetUsersByIDs(db *gorm.DB, ids []uint) ([]User, error) {
 	if userModels != nil {
 		users = make([]User, len(userModels))
 		for i, e := range userModels {
-			users[i] = UserModelToUser(e)
+			user, err := UserModelToUser(db, e)
+			if err != nil {
+				return nil, err
+			}
+			users[i] = *user
 		}
 	}
 

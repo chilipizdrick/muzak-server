@@ -21,23 +21,43 @@ func assignTracksRouteHandlers(parentGroup *gin.RouterGroup, db *gorm.DB) {
 	group.GET("/:id", getTrackByIDWrapper(db))
 }
 
-type Track struct {
-	ID       uint              `json:"id"`
-	Title    string            `json:"title"`
-	Artists  []database.Artist `json:"artists"`
-	Album    database.Album    `json:"album"`
-	Duration uint              `json:"duration"`
-	Href     string            `json:"href"`
+type TrackExpanded struct {
+	ID        uint     `json:"id"`
+	Title     string   `json:"title"`
+	Artists   []Artist `json:"artists"`
+	Album     Album    `json:"album"`
+	Duration  uint     `json:"duration"`
+	SourceURL string   `json:"sourceUrl"`
 }
 
-func DBTrackExpandedToAPITrack(track database.TrackExpanded) Track {
+type Track struct {
+	ID        uint   `json:"id"`
+	Title     string `json:"title"`
+	Duration  uint   `json:"duration"`
+	SourceURL string `json:"sourceUrl"`
+}
+
+func DBTrackToAPITrack(track database.Track) Track {
 	return Track{
-		ID:       track.ID,
-		Title:    track.Title,
-		Artists:  track.Artists,
-		Album:    track.Album,
-		Duration: track.Duration,
-		Href:     fmt.Sprintf("%s/tracks/%d/audio.ogg", os.Getenv("ASSETS_SERVER_URI"), track.ID),
+		ID:        track.ID,
+		Title:     track.Title,
+		Duration:  track.Duration,
+		SourceURL: fmt.Sprintf("%s/tracks/%d/audio.ogg", os.Getenv("ASSETS_SERVER_URI"), track.ID),
+	}
+}
+
+func DBTrackExpandedToAPITrackExpanded(track database.TrackExpanded) TrackExpanded {
+	artists := make([]Artist, len(track.Artists))
+	for i, e := range track.Artists {
+		artists[i] = DBArtistToAPIArtist(e)
+	}
+
+	return TrackExpanded{ID: track.ID,
+		Title:     track.Title,
+		Artists:   artists,
+		Album:     DBAlbumToAPIAlbum(track.Album),
+		Duration:  track.Duration,
+		SourceURL: fmt.Sprintf("%s/tracks/%d/audio.ogg", os.Getenv("ASSETS_SERVER_URI"), track.ID),
 	}
 }
 
@@ -46,7 +66,7 @@ func getTrackByIDWrapper(db *gorm.DB) gin.HandlerFunc {
 		idString := c.Param("id")
 		id64, err := strconv.ParseUint(idString, 10, 64)
 		if err != nil {
-			log.Printf("[INFO] Non integer id \"%v\" has been provided: %s", idString, err)
+			log.Printf("[INFO] Non integer id \"%s\" has been provided: %s", idString, err)
 			c.IndentedJSON(http.StatusInternalServerError, ErrorResponse{
 				Error: Error{
 					Status:  http.StatusInternalServerError,
@@ -75,6 +95,6 @@ func getTrackByIDWrapper(db *gorm.DB) gin.HandlerFunc {
 			})
 			return
 		}
-		c.IndentedJSON(http.StatusOK, DBTrackExpandedToAPITrack(*track))
+		c.IndentedJSON(http.StatusOK, DBTrackExpandedToAPITrackExpanded(*track))
 	}
 }
