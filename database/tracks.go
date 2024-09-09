@@ -10,7 +10,7 @@ type TrackModel struct {
 	gorm.Model
 	Title     string        `gorm:"type:string"`
 	ArtistIDs pq.Int64Array `gorm:"type:integer[]"`
-	AlbumID   uint          `gorm:"type:uint"`
+	AlbumID   *uint          `gorm:"type:uint"`
 	Duration  uint          `gorm:"type:uint"`
 	TSV       string        `gorm:"type:tsvector GENERATED ALWAYS AS (to_tsvector('simple', title)) STORED;index:,type:GIN"`
 }
@@ -23,7 +23,7 @@ type Track struct {
 	ID        uint
 	Title     string
 	ArtistIDs []uint
-	AlbumID   uint
+	AlbumID   *uint
 	Duration  uint
 }
 
@@ -31,7 +31,7 @@ type TrackExpanded struct {
 	ID       uint
 	Title    string
 	Artists  []Artist
-	Album    Album
+	Album    *Album
 	Duration uint
 }
 
@@ -51,7 +51,7 @@ func TrackToTrackExpanded(db *gorm.DB, track Track) (*TrackExpanded, error) {
 		return nil, err
 	}
 
-	album, err := GetAlbumByID(db, track.AlbumID)
+	album, err := GetAlbumByID(db, *track.AlbumID)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +60,7 @@ func TrackToTrackExpanded(db *gorm.DB, track Track) (*TrackExpanded, error) {
 		ID:       track.ID,
 		Title:    track.Title,
 		Artists:  artists,
-		Album:    *album,
+		Album:    album,
 		Duration: track.Duration,
 	}
 	return &trackExpanded, nil

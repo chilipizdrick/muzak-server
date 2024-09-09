@@ -51,7 +51,7 @@ func DBPlaylistExpandedToAPIPlaylistExpanded(playlist database.PlaylistExpanded)
 	return PlaylistExpanded{
 		ID:       playlist.ID,
 		Title:    playlist.Title,
-		Owner:    DBUserToAPIUser(playlist.Owner),
+		Owner:    DBUserToAPIUser(*playlist.Owner),
 		IsPublic: playlist.IsPublic,
 		Tracks:   tracks,
 	}

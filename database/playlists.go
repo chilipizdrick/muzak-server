@@ -9,7 +9,7 @@ import (
 type PlaylistModel struct {
 	gorm.Model
 	Title    string        `gorm:"type:string"`
-	OwnerID  uint          `gorm:"type:uint"`
+	OwnerID  *uint          `gorm:"type:uint"`
 	IsPublic bool          `gorm:"type:bool"`
 	TrackIDs pq.Int64Array `gorm:"type:integer[]"`
 	TSV      string        `gorm:"type:tsvector GENERATED ALWAYS AS (to_tsvector('simple', title)) STORED;index:,type:GIN"`
@@ -22,7 +22,7 @@ func (PlaylistModel) TableName() string {
 type Playlist struct {
 	ID       uint
 	Title    string
-	OwnerID  uint
+	OwnerID  *uint
 	IsPublic bool
 	TrackIDs []uint
 }
@@ -30,7 +30,7 @@ type Playlist struct {
 type PlaylistExpanded struct {
 	ID       uint
 	Title    string
-	Owner    User
+	Owner    *User
 	IsPublic bool
 	Tracks   []Track
 }
@@ -46,7 +46,7 @@ func PlaylistModelToPlaylist(playlistModel PlaylistModel) Playlist {
 }
 
 func PlaylistToPlaylistExpanded(db *gorm.DB, playlist Playlist) (*PlaylistExpanded, error) {
-	owner, err := GetUserByID(db, playlist.OwnerID)
+	owner, err := GetUserByID(db, *playlist.OwnerID)
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ func PlaylistToPlaylistExpanded(db *gorm.DB, playlist Playlist) (*PlaylistExpand
 	playlistExpanded := PlaylistExpanded{
 		ID:       playlist.ID,
 		Title:    playlist.Title,
-		Owner:    *owner,
+		Owner:    owner,
 		IsPublic: playlist.IsPublic,
 		Tracks:   tracks,
 	}

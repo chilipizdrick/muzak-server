@@ -55,7 +55,7 @@ func DBTrackExpandedToAPITrackExpanded(track database.TrackExpanded) TrackExpand
 	return TrackExpanded{ID: track.ID,
 		Title:     track.Title,
 		Artists:   artists,
-		Album:     DBAlbumToAPIAlbum(track.Album),
+		Album:     DBAlbumToAPIAlbum(*track.Album),
 		Duration:  track.Duration,
 		SourceURL: fmt.Sprintf("%s/tracks/%d/audio.ogg", os.Getenv("ASSETS_SERVER_URI"), track.ID),
 	}
