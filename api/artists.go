@@ -68,34 +68,19 @@ func getArtistByIDWrapper(db *gorm.DB) func(*gin.Context) {
 		id64, err := strconv.ParseUint(idString, 10, 64)
 		if err != nil {
 			log.Printf("[INFO] Non integer id \"%s\" has been provided: %s", idString, err)
-			c.IndentedJSON(http.StatusInternalServerError, ErrorResponse{
-				Error: Error{
-					Status:  http.StatusInternalServerError,
-					Message: "Invalid artist id.",
-				},
-			})
+			badRequestResponse(c, "Invalid artist id.")
 			return
 		}
 		id := uint(id64)
 		artist, err := database.GetArtistExpandedByID(db, id)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				c.IndentedJSON(http.StatusNotFound, ErrorResponse{
-					Error: Error{
-						Status:  http.StatusNotFound,
-						Message: fmt.Sprintf("Artist with id \"%d\" was not found.", id),
-					},
-				})
+				notFoundResponse(c, fmt.Sprintf("Artist with id \"%d\" was not found.", id))
 				return
 			}
-			c.IndentedJSON(http.StatusInternalServerError, ErrorResponse{
-				Error: Error{
-					Status:  http.StatusInternalServerError,
-					Message: "Internal server error.",
-				},
-			})
+			internalServerErrorResponse(c, "Internal server error.")
 			return
 		}
-		c.IndentedJSON(http.StatusOK, DBArtistExpandedToAPIArtistExpanded(*artist))
+		c.JSON(http.StatusOK, DBArtistExpandedToAPIArtistExpanded(*artist))
 	}
 }

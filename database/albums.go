@@ -11,7 +11,7 @@ type AlbumModel struct {
 	Title     string        `gorm:"type:string"`
 	ArtistIDs pq.Int64Array `gorm:"type:integer[]"`
 	TrackIDs  pq.Int64Array `gorm:"type:integer[]"`
-	TSV       string        `gorm:"type:tsvector GENERATED ALWAYS AS (to_tsvector('simple', title)) STORED;index:,type:GIN"`
+	TSV       string        `gorm:"->;type:tsvector GENERATED ALWAYS AS (to_tsvector('simple', title)) STORED;index:,type:GIN"`
 }
 
 func (AlbumModel) TableName() string {
@@ -98,7 +98,7 @@ func GetAlbumExpandedByID(db *gorm.DB, id uint) (*AlbumExpanded, error) {
 
 func GetAlbumsByIDs(db *gorm.DB, ids []uint) ([]Album, error) {
 	var albumModels []AlbumModel
-	if err := db.Where(ids).Find(&albumModels).Error; err != nil {
+	if err := db.Where("id IN ?", ids).Find(&albumModels).Error; err != nil {
 		return nil, err
 	}
 

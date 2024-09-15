@@ -21,24 +21,27 @@ func assignPlaylistsRouteHandlers(parentGroup *gin.RouterGroup, db *gorm.DB) {
 }
 
 type Playlist struct {
-	ID       uint   `json:"id"`
-	Title    string `json:"title"`
-	IsPublic bool   `json:"isPublic"`
+	ID        uint   `json:"id"`
+	Title     string `json:"title"`
+	IsPublic  bool   `json:"isPublic"`
+	Deletable bool   `json:"deletable"`
 }
 
 type PlaylistExpanded struct {
-	ID       uint    `json:"id"`
-	Title    string  `json:"title"`
-	Owner    User    `json:"owner"`
-	IsPublic bool    `json:"isPublic"`
-	Tracks   []Track `json:"tracks"`
+	ID        uint    `json:"id"`
+	Title     string  `json:"title"`
+	Owner     User    `json:"owner"`
+	IsPublic  bool    `json:"isPublic"`
+	Tracks    []Track `json:"tracks"`
+	Deletable bool    `json:"deletable"`
 }
 
 func DBPlaylistToAPIPlaylist(playlist database.Playlist) Playlist {
 	return Playlist{
-		ID:       playlist.ID,
-		Title:    playlist.Title,
-		IsPublic: playlist.IsPublic,
+		ID:        playlist.ID,
+		Title:     playlist.Title,
+		IsPublic:  playlist.IsPublic,
+		Deletable: playlist.Deletable,
 	}
 }
 
@@ -49,11 +52,12 @@ func DBPlaylistExpandedToAPIPlaylistExpanded(playlist database.PlaylistExpanded)
 	}
 
 	return PlaylistExpanded{
-		ID:       playlist.ID,
-		Title:    playlist.Title,
-		Owner:    DBUserToAPIUser(*playlist.Owner),
-		IsPublic: playlist.IsPublic,
-		Tracks:   tracks,
+		ID:        playlist.ID,
+		Title:     playlist.Title,
+		Owner:     DBUserToAPIUser(*playlist.Owner),
+		IsPublic:  playlist.IsPublic,
+		Tracks:    tracks,
+		Deletable: playlist.Deletable,
 	}
 }
 
@@ -63,34 +67,19 @@ func getPlaylistByIDWrapper(db *gorm.DB) func(*gin.Context) {
 		id64, err := strconv.ParseUint(idString, 10, 64)
 		if err != nil {
 			log.Printf("[INFO] Non integer id \"%s\" has been provided: %s", idString, err)
-			c.IndentedJSON(http.StatusInternalServerError, ErrorResponse{
-				Error: Error{
-					Status:  http.StatusInternalServerError,
-					Message: "Invalid artist id.",
-				},
-			})
+			badRequestResponse(c, "Invalid artist id.")
 			return
 		}
 		id := uint(id64)
 		playlist, err := database.GetPlaylistExpandedByID(db, id)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				c.IndentedJSON(http.StatusNotFound, ErrorResponse{
-					Error: Error{
-						Status:  http.StatusNotFound,
-						Message: fmt.Sprintf("Artist with id \"%d\" was not found.", id),
-					},
-				})
+				notFoundResponse(c, fmt.Sprintf("Artist with id \"%d\" was not found.", id))
 				return
 			}
-			c.IndentedJSON(http.StatusInternalServerError, ErrorResponse{
-				Error: Error{
-					Status:  http.StatusInternalServerError,
-					Message: "Internal server error.",
-				},
-			})
+			internalServerErrorResponse(c, "Internal server error.")
 			return
 		}
-		c.IndentedJSON(http.StatusOK, DBPlaylistExpandedToAPIPlaylistExpanded(*playlist))
+		c.JSON(http.StatusOK, DBPlaylistExpandedToAPIPlaylistExpanded(*playlist))
 	}
 }

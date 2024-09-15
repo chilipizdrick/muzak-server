@@ -8,11 +8,12 @@ import (
 
 type PlaylistModel struct {
 	gorm.Model
-	Title    string        `gorm:"type:string"`
-	OwnerID  *uint          `gorm:"type:uint"`
-	IsPublic bool          `gorm:"type:bool"`
-	TrackIDs pq.Int64Array `gorm:"type:integer[]"`
-	TSV      string        `gorm:"type:tsvector GENERATED ALWAYS AS (to_tsvector('simple', title)) STORED;index:,type:GIN"`
+	Title     string        `gorm:"type:string"`
+	OwnerID   *uint         `gorm:"type:uint"`
+	IsPublic  bool          `gorm:"type:bool"`
+	TrackIDs  pq.Int64Array `gorm:"type:integer[]"`
+	Deletable bool          `gorm:"type:bool"`
+	TSV       string        `gorm:"->;type:tsvector GENERATED ALWAYS AS (to_tsvector('simple', title)) STORED;index:,type:GIN"`
 }
 
 func (PlaylistModel) TableName() string {
@@ -20,28 +21,31 @@ func (PlaylistModel) TableName() string {
 }
 
 type Playlist struct {
-	ID       uint
-	Title    string
-	OwnerID  *uint
-	IsPublic bool
-	TrackIDs []uint
+	ID        uint
+	Title     string
+	OwnerID   *uint
+	IsPublic  bool
+	TrackIDs  []uint
+	Deletable bool
 }
 
 type PlaylistExpanded struct {
-	ID       uint
-	Title    string
-	Owner    *User
-	IsPublic bool
-	Tracks   []Track
+	ID        uint
+	Title     string
+	Owner     *User
+	IsPublic  bool
+	Tracks    []Track
+	Deletable bool
 }
 
 func PlaylistModelToPlaylist(playlistModel PlaylistModel) Playlist {
 	return Playlist{
-		ID:       playlistModel.ID,
-		Title:    playlistModel.Title,
-		OwnerID:  playlistModel.OwnerID,
-		IsPublic: playlistModel.IsPublic,
-		TrackIDs: utils.PQInt64ArrayPtrToUIntSlice(playlistModel.TrackIDs),
+		ID:        playlistModel.ID,
+		Title:     playlistModel.Title,
+		OwnerID:   playlistModel.OwnerID,
+		IsPublic:  playlistModel.IsPublic,
+		TrackIDs:  utils.PQInt64ArrayPtrToUIntSlice(playlistModel.TrackIDs),
+		Deletable: playlistModel.Deletable,
 	}
 }
 
@@ -57,11 +61,12 @@ func PlaylistToPlaylistExpanded(db *gorm.DB, playlist Playlist) (*PlaylistExpand
 	}
 
 	playlistExpanded := PlaylistExpanded{
-		ID:       playlist.ID,
-		Title:    playlist.Title,
-		Owner:    owner,
-		IsPublic: playlist.IsPublic,
-		Tracks:   tracks,
+		ID:        playlist.ID,
+		Title:     playlist.Title,
+		Owner:     owner,
+		IsPublic:  playlist.IsPublic,
+		Tracks:    tracks,
+		Deletable: playlist.Deletable,
 	}
 	return &playlistExpanded, nil
 }
@@ -102,7 +107,7 @@ func GetPlaylistExpandedByID(db *gorm.DB, id uint) (*PlaylistExpanded, error) {
 
 func GetPlaylistsByIDs(db *gorm.DB, ids []uint) ([]Playlist, error) {
 	var playlistModels []PlaylistModel
-	if err := db.Where(ids).Find(&playlistModels).Error; err != nil {
+	if err := db.Where("id IN ?", ids).Find(&playlistModels).Error; err != nil {
 		return nil, err
 	}
 

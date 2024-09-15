@@ -13,11 +13,16 @@ type UserModel struct {
 	PlaylistIDs         pq.Int64Array     `gorm:"type:integer[]"`
 	PlayerState         *PlayerStateModel `gorm:"embedded;embeddedPrefix:player_"`
 	IsPlayerStatePublic bool              `gorm:"type:bool"`
-	TSV                 string            `gorm:"type:tsvector GENERATED ALWAYS AS (to_tsvector('simple', username)) STORED;index:,type:GIN"`
+	TSV                 string            `gorm:"->;type:tsvector GENERATED ALWAYS AS (to_tsvector('simple', username)) STORED;index:,type:GIN"`
 }
 
 func (UserModel) TableName() string {
 	return "users"
+}
+
+func (m *UserModel) AfterDelete(db *gorm.DB) (err error) {
+	db.Where("owner_id = ?", m.ID).Delete(&PlaylistModel{})
+	return
 }
 
 type PlayerStateModel struct {
@@ -163,7 +168,7 @@ func GetUserExpandedByID(db *gorm.DB, id uint) (*UserExpanded, error) {
 
 func GetUsersByIDs(db *gorm.DB, ids []uint) ([]User, error) {
 	var userModels []UserModel
-	if err := db.Where(ids).Find(&userModels).Error; err != nil {
+	if err := db.Where("id IN ?", ids).Find(&userModels).Error; err != nil {
 		return nil, err
 	}
 

@@ -33,12 +33,7 @@ func searchWrapper(db *gorm.DB) func(*gin.Context) {
 		validate := validator.New(validator.WithRequiredStructEnabled())
 		if err := validate.Struct(request); err != nil {
 			log.Printf("[TRACE] Failed to validate search request: %s", err)
-			c.IndentedJSON(http.StatusInternalServerError, ErrorResponse{
-				Error: Error{
-					Status:  http.StatusInternalServerError,
-					Message: "Invalid search request.",
-				},
-			})
+			badRequestResponse(c, "Invalid search request.")
 			return
 		}
 
@@ -52,17 +47,12 @@ func searchWrapper(db *gorm.DB) func(*gin.Context) {
 				album, err := database.AlbumModelToAlbumExpanded(db, e)
 				if err != nil {
 					log.Printf("[ERROR] Failed to convert database.Album to database.AlbumExpanded: %s", err)
-					c.IndentedJSON(http.StatusInternalServerError, ErrorResponse{
-						Error: Error{
-							Status:  http.StatusInternalServerError,
-							Message: "Internal server error.",
-						},
-					})
+					internalServerErrorResponse(c, "Internal server error.")
 					return
 				}
 				albums[i] = DBAlbumExpandedToAPIAlbumExpanded(*album)
 			}
-			c.IndentedJSON(http.StatusOK, albums)
+			c.JSON(http.StatusOK, albums)
 			return
 
 		case "artist":
@@ -74,17 +64,12 @@ func searchWrapper(db *gorm.DB) func(*gin.Context) {
 				artist, err := database.ArtistModelToArtistExpanded(db, e)
 				if err != nil {
 					log.Printf("[ERROR] Failed to convert database.artist to database.artistExpanded: %s", err)
-					c.IndentedJSON(http.StatusInternalServerError, ErrorResponse{
-						Error: Error{
-							Status:  http.StatusInternalServerError,
-							Message: "Internal server error.",
-						},
-					})
+					internalServerErrorResponse(c, "Internal server error.")
 					return
 				}
 				artists[i] = DBArtistExpandedToAPIArtistExpanded(*artist)
 			}
-			c.IndentedJSON(http.StatusOK, artists)
+			c.JSON(http.StatusOK, artists)
 			return
 
 		case "playlist":
@@ -96,17 +81,12 @@ func searchWrapper(db *gorm.DB) func(*gin.Context) {
 				playlist, err := database.PlaylistModelToPlaylistExpanded(db, e)
 				if err != nil {
 					log.Printf("[ERROR] Failed to convert database.playlist to database.playlistExpanded: %s", err)
-					c.IndentedJSON(http.StatusInternalServerError, ErrorResponse{
-						Error: Error{
-							Status:  http.StatusInternalServerError,
-							Message: "Internal server error.",
-						},
-					})
+					internalServerErrorResponse(c, "Internal server error.")
 					return
 				}
 				playlists[i] = DBPlaylistExpandedToAPIPlaylistExpanded(*playlist)
 			}
-			c.IndentedJSON(http.StatusOK, playlists)
+			c.JSON(http.StatusOK, playlists)
 			return
 
 		case "track":
@@ -118,17 +98,12 @@ func searchWrapper(db *gorm.DB) func(*gin.Context) {
 				track, err := database.TrackModelToTrackExpanded(db, e)
 				if err != nil {
 					log.Printf("[ERROR] Failed to convert database.track to database.trackExpanded: %s", err)
-					c.IndentedJSON(http.StatusInternalServerError, ErrorResponse{
-						Error: Error{
-							Status:  http.StatusInternalServerError,
-							Message: "Internal server error.",
-						},
-					})
+					internalServerErrorResponse(c, "Internal server error.")
 					return
 				}
 				tracks[i] = DBTrackExpandedToAPITrackExpanded(*track)
 			}
-			c.IndentedJSON(http.StatusOK, tracks)
+			c.JSON(http.StatusOK, tracks)
 			return
 
 		case "user":
@@ -140,17 +115,12 @@ func searchWrapper(db *gorm.DB) func(*gin.Context) {
 				user, err := database.UserModelToUserExpanded(db, e)
 				if err != nil {
 					log.Printf("[ERROR] Failed to convert database.user to database.userExpanded: %s", err)
-					c.IndentedJSON(http.StatusInternalServerError, ErrorResponse{
-						Error: Error{
-							Status:  http.StatusInternalServerError,
-							Message: "Internal server error.",
-						},
-					})
+					internalServerErrorResponse(c, "Internal server error.")
 					return
 				}
 				users[i] = DBUserExpandedToAPIUserExpanded(*user)
 			}
-			c.IndentedJSON(http.StatusOK, users)
+			c.JSON(http.StatusOK, users)
 			return
 
 		default:

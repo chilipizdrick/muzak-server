@@ -4,6 +4,8 @@ import (
 	"log"
 	"os"
 
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
@@ -32,6 +34,7 @@ func main() {
 	}
 
 	r := gin.New()
+	r.Use(sessions.Sessions("default", cookie.NewStore([]byte("secrets"))))
 
 	database.AutoMigrateSchemas(db)
 

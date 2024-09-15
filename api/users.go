@@ -2,7 +2,6 @@ package api
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -103,34 +102,19 @@ func getUserByIDWrapper(db *gorm.DB) func(*gin.Context) {
 		id64, err := strconv.ParseUint(idString, 10, 64)
 		if err != nil {
 			log.Printf("[INFO] Non integer id \"%s\" has been provided: %s", idString, err)
-			c.IndentedJSON(http.StatusInternalServerError, ErrorResponse{
-				Error: Error{
-					Status:  http.StatusInternalServerError,
-					Message: "Invalid user id.",
-				},
-			})
+			badRequestResponse(c, "Invalid user id.")
 			return
 		}
 		id := uint(id64)
 		user, err := database.GetUserExpandedByID(db, id)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				c.IndentedJSON(http.StatusNotFound, ErrorResponse{
-					Error: Error{
-						Status:  http.StatusNotFound,
-						Message: fmt.Sprintf("User with id \"%d\" was not found.", id),
-					},
-				})
+				notFoundResponse(c, "User with id \"%d\" was not found.")
 				return
 			}
-			c.IndentedJSON(http.StatusInternalServerError, ErrorResponse{
-				Error: Error{
-					Status:  http.StatusInternalServerError,
-					Message: "Internal server error.",
-				},
-			})
+			internalServerErrorResponse(c, "Internal server error.")
 			return
 		}
-		c.IndentedJSON(http.StatusOK, DBUserExpandedToAPIUserExpanded(*user))
+		c.JSON(http.StatusOK, DBUserExpandedToAPIUserExpanded(*user))
 	}
 }

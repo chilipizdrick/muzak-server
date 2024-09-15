@@ -64,34 +64,19 @@ func getAlbumByIDWrapper(db *gorm.DB) func(*gin.Context) {
 		id64, err := strconv.ParseUint(idString, 10, 64)
 		if err != nil {
 			log.Printf("[INFO] Non integer id \"%s\" has been provided: %s", idString, err)
-			c.IndentedJSON(http.StatusInternalServerError, ErrorResponse{
-				Error: Error{
-					Status:  http.StatusInternalServerError,
-					Message: "Invalid album id.",
-				},
-			})
+			badRequestResponse(c, "Invalid album id.")
 			return
 		}
 		id := uint(id64)
 		album, err := database.GetAlbumExpandedByID(db, id)
 		if err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				c.IndentedJSON(http.StatusNotFound, ErrorResponse{
-					Error: Error{
-						Status:  http.StatusNotFound,
-						Message: fmt.Sprintf("Album with id \"%d\" was not found.", id),
-					},
-				})
+				notFoundResponse(c, fmt.Sprintf("Album with id \"%d\" was not found.", id))
 				return
 			}
-			c.IndentedJSON(http.StatusInternalServerError, ErrorResponse{
-				Error: Error{
-					Status:  http.StatusInternalServerError,
-					Message: "Internal server error.",
-				},
-			})
+			internalServerErrorResponse(c, "Internal server error.")
 			return
 		}
-		c.IndentedJSON(http.StatusOK, DBAlbumExpandedToAPIAlbumExpanded(*album))
+		c.JSON(http.StatusOK, DBAlbumExpandedToAPIAlbumExpanded(*album))
 	}
 }

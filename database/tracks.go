@@ -10,9 +10,9 @@ type TrackModel struct {
 	gorm.Model
 	Title     string        `gorm:"type:string"`
 	ArtistIDs pq.Int64Array `gorm:"type:integer[]"`
-	AlbumID   *uint          `gorm:"type:uint"`
+	AlbumID   *uint         `gorm:"type:uint"`
 	Duration  uint          `gorm:"type:uint"`
-	TSV       string        `gorm:"type:tsvector GENERATED ALWAYS AS (to_tsvector('simple', title)) STORED;index:,type:GIN"`
+	TSV       string        `gorm:"->;type:tsvector GENERATED ALWAYS AS (to_tsvector('simple', title)) STORED;index:,type:GIN"`
 }
 
 func (TrackModel) TableName() string {
@@ -103,7 +103,7 @@ func GetTrackExpandedByID(db *gorm.DB, id uint) (*TrackExpanded, error) {
 
 func GetTracksByIDs(db *gorm.DB, ids []uint) ([]Track, error) {
 	var trackModels []TrackModel
-	if err := db.Where(ids).Find(&trackModels).Error; err != nil {
+	if err := db.Where("id IN ?", ids).Find(&trackModels).Error; err != nil {
 		return nil, err
 	}
 
