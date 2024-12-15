@@ -34,7 +34,7 @@ func main() {
 	}
 
 	r := gin.New()
-	r.Use(sessions.Sessions("default", cookie.NewStore([]byte("secrets"))))
+	r.Use(sessions.Sessions("auth", cookie.NewStore([]byte("secrets"))))
 
 	database.AutoMigrateSchemas(db)
 

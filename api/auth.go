@@ -24,6 +24,7 @@ func assignAuthRouteHandlers(parentGroup *gin.RouterGroup, db *gorm.DB) {
 
 	group.POST("/register", registerUserWrapper(db))
 	group.POST("/login", loginUserWrapper(db))
+	group.POST("/logout", logoutUserWrapper(db))
 }
 
 func hashPassword(username string, password string) (string, error) {
@@ -225,7 +226,27 @@ func loginUserWrapper(db *gorm.DB) func(*gin.Context) {
 		}
 		c.JSON(http.StatusOK, OKResponse{OK{
 			Status:  http.StatusOK,
-			Message: "User authentecated.",
+			Message: "Successfully logged in.",
+		}})
+	}
+}
+
+func logoutUserWrapper(db *gorm.DB) func(*gin.Context) {
+	return func(c *gin.Context) {
+		session := sessions.Default(c)
+		sessionId := session.Get("userId")
+		if sessionId == nil {
+			badRequestResponse(c, "Invalid session token.")
+			return
+		}
+		session.Delete("userId")
+		if err := session.Save(); err != nil {
+			internalServerErrorResponse(c, "Internal server error.")
+			return
+		}
+		c.JSON(http.StatusOK, OKResponse{OK{
+			Status:  http.StatusOK,
+			Message: "Successfully logged out.",
 		}})
 	}
 }

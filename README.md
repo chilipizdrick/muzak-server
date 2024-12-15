@@ -3,7 +3,7 @@
 ## TODOS
 
 - [ ] API for registration of tracks/albums/artists (available for admin users)
-- [ ] API for user ~authentication~ and ~registration~ (logout remaining)
+- [x] API for user ~authentication~ and ~registration~ (~logout remaining~)
 - [ ] API for creating and managing playlists
 - [ ] Implement cli interface
 - [ ] Implement admin users and mere mortals (something like `createsuperuser` cli command)
